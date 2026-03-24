@@ -23,50 +23,64 @@ build_llvm_clang_cross() {
 	if [[ "${triple}" =~ "macos" ]]; then
 		EXTRA="${EXTRA} -DCMAKE_TOOLCHAIN_FILE=${PWD}/macos-toolchain.cmake -C macos-target.cmake"
 	fi
-	if [[ "${HOST_CLANG_VER-}" -ne "" ]]; then
-		EXTRA="${EXTRA-} -DHOST_CLANG_VER=${HOST_CLANG_VER}"
-	fi
 	if [[ "${IN_CONTAINER-0}" -ne 1 ]]; then
 		CMAKE_CCACHE="-DLLVM_CCACHE_BUILD:BOOL=ON"
 	fi
-	if [[ "${pic}" =~ "ON" ]]; then
-		ELD="-DLLVM_EXTERNAL_PROJECTS=eld \
-		     -DLLVM_EXTERNAL_ELD_SOURCE_DIR=${PWD}/llvm-project/eld \
-		     -DELD_ENABLE_SYMBOL_VERSIONING:BOOL=ON \
-		     "
-	fi
-	if [[ "${dylib}" =~ "ON" ]]; then
-		ELD=""
-		DYLIB="-C ./llvm-project/clang/cmake/caches/hexagon-unknown-linux-musl-clang-dylib.cmake"
+	if [[ -n "${LLVM_PARALLEL_LINK_JOBS-}" ]]; then
+		CMAKE_LINK_JOBS="-DLLVM_PARALLEL_LINK_JOBS=${LLVM_PARALLEL_LINK_JOBS}"
 	fi
 
+	# Build distribution components list dynamically based on ELD/dylib
+	DIST_COMPONENTS=(
+		clang clang-resource-headers lld LTO
+		llvm-ar llvm-config llvm-cov llvm-cxxfilt llvm-dwarfdump
+		llvm-nm llvm-objcopy llvm-objdump llvm-profdata
+		llvm-ranlib llvm-readelf llvm-readobj
+		llvm-size llvm-strip llvm-symbolizer
+	)
+	ELD=""
+	DYLIB=""
+	if [[ "${pic}" == "ON" && "${dylib}" != "ON" && ! "${triple}" =~ "windows" ]]; then
+		ELD="-DLLVM_EXTERNAL_PROJECTS=eld \
+		     -DLLVM_EXTERNAL_ELD_SOURCE_DIR=${PWD}/llvm-project/eld \
+		     -DELD_ENABLE_SYMBOL_VERSIONING:BOOL=ON"
+		DIST_COMPONENTS+=(ld.eld)
+	fi
+	if [[ "${dylib}" == "ON" ]]; then
+		DYLIB="-C ./cmake/caches/hexagon-stage0-dylib.cmake"
+		DIST_COMPONENTS+=(LLVM)
+	fi
+	DIST_LIST=$(IFS=';'; echo "${DIST_COMPONENTS[*]}")
 
 	CC="zig cc --target=${triple}" \
 	ASM="zig cc --target=${triple}" \
 	CXX="zig c++ --target=${triple}" \
 		cmake -G Ninja \
-		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_INSTALL_PREFIX:PATH=${TOOLCHAIN_INSTALL}/${triple}/ \
 		${CMAKE_CCACHE-} \
+		${CMAKE_LINK_JOBS-} \
 		-DLLVM_ENABLE_ASSERTIONS:BOOL=ON \
 		-DLLVM_HOST_TRIPLE=${triple} \
 		-DLLVM_TOOL_DSYMUTIL_BUILD:BOOL=OFF \
-		-DLLVM_INCLUDE_TESTS:BOOL=OFF \
-		-DLLVM_INCLUDE_EXAMPLES:BOOL=OFF \
-		-DLLVM_ENABLE_PIC:BOOL="${pic}" \
 		-DLIBCLANG_BUILD_STATIC:BOOL=ON \
-		${ELD-} \
+		${ELD} \
 		-DLLVM_NATIVE_TOOL_DIR=${PWD}/obj_llvm/bin \
 		-DCMAKE_BUILD_WITH_INSTALL_RPATH:BOOL=ON \
 		-DCMAKE_CROSSCOMPILING:BOOL=ON \
 		${EXTRA} \
-		-C ./llvm-tools.cmake \
-		${DYLIB-} \
-		-C ./llvm-project/clang/cmake/caches/hexagon-unknown-linux-musl-clang.cmake \
-		-C ./llvm-project/clang/cmake/caches/hexagon-unknown-linux-musl-clang-cross.cmake \
+		${DYLIB} \
+		-C ./cmake/caches/hexagon-stage0.cmake \
+		-C ./cmake/caches/hexagon-stage0-cross.cmake \
+		-DLLVM_ENABLE_PIC:BOOL="${pic}" \
+		-DLLVM_DISTRIBUTION_COMPONENTS="${DIST_LIST}" \
 		-B ./obj_llvm_${triple} \
 		-S ./llvm-project/llvm
-	cmake --build ./obj_llvm_${triple} -- -v all install
+	cmake --build ./obj_llvm_${triple} --target install-distribution
+	# ELD external project doesn't participate in install-distribution;
+	# install-ld.eld handles both the ld.eld binary and libLW shared library.
+	if [[ -n "${ELD}" ]]; then
+		cmake --build ./obj_llvm_${triple} --target install-ld.eld
+	fi
 	if [[ "${IN_CONTAINER-0}" -eq 1 ]]; then
 		rm -rf ./obj_llvm_${triple}
 	fi
@@ -79,24 +93,28 @@ build_llvm_clang() {
 	if [[ "${IN_CONTAINER-0}" -ne 1 ]]; then
 		CMAKE_CCACHE="-DLLVM_CCACHE_BUILD:BOOL=ON"
 	fi
-
+	if [[ -n "${LLVM_PARALLEL_LINK_JOBS-}" ]]; then
+		CMAKE_LINK_JOBS="-DLLVM_PARALLEL_LINK_JOBS=${LLVM_PARALLEL_LINK_JOBS}"
+	fi
 
 	CC=clang CXX=clang++ cmake -G Ninja \
-		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_INSTALL_PREFIX:PATH=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/ \
 		${CMAKE_CCACHE-} \
+		${CMAKE_LINK_JOBS-} \
 		-DLLVM_ENABLE_LLD:BOOL=ON \
 		-DLLVM_ENABLE_LIBCXX:BOOL=ON \
 		-DLLVM_ENABLE_ASSERTIONS:BOOL=ON \
-		-DLLVM_ENABLE_PIC:BOOL=ON \
 		-DLLVM_EXTERNAL_PROJECTS=eld \
 		-DLLVM_EXTERNAL_ELD_SOURCE_DIR=${PWD}/llvm-project/eld \
 		-DELD_ENABLE_SYMBOL_VERSIONING:BOOL=ON \
-		-C ./llvm-project/clang/cmake/caches/hexagon-unknown-linux-musl-clang.cmake \
-		-C ./llvm-project/clang/cmake/caches/hexagon-unknown-linux-musl-clang-cross.cmake \
+		-C ./cmake/caches/hexagon-stage0.cmake \
+		-C ./cmake/caches/hexagon-stage0-cross.cmake \
 		-B ./obj_llvm \
 		-S ./llvm-project/llvm
-	cmake --build ./obj_llvm -- -v all install
+	cmake --build ./obj_llvm --target install-distribution
+	# ELD external project doesn't participate in install-distribution;
+	# install-ld.eld handles both the ld.eld binary and libLW shared library.
+	cmake --build ./obj_llvm --target install-ld.eld
 	DEST_BIN=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/bin
 	add_symlinks ${DEST_BIN}
 }
@@ -373,7 +391,7 @@ build_picolibc() {
 		cat > picolibc-hexagon-${archver}.txt <<CROSSEOF
 [binaries]
 c = ['${TOOLCHAIN_BIN}/clang', '--target=hexagon-unknown-none-elf', '-m${archver}', '-fno-pic', '-fno-PIE', '-static', '-nostdlib', '-fuse-init-array', '-G0']
-c_ld = '${TOOLCHAIN_BIN}/ld.eld'
+c_ld = '${TOOLCHAIN_BIN}/ld.lld'
 ar = '${TOOLCHAIN_BIN}/llvm-ar'
 as = '${TOOLCHAIN_BIN}/clang'
 nm = '${TOOLCHAIN_BIN}/llvm-nm'
