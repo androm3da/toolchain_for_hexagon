@@ -155,30 +155,26 @@ add_multilib_symlinks() {
 	cd -
 }
 
-build_clang_rt_builtins() {
+build_builtins() {
 	cd ${BASE}
+	# Builtins are not part of install-distribution because the Linux
+	# builtins (hexagon-unknown-linux-musl) need musl headers (<stdlib.h>).
+	# Build after musl headers are installed.
+	cmake --build ./obj_llvm --target install-builtins
 
-	PATH=${TOOLCHAIN_BIN}:${PATH} \
-		cmake -G Ninja \
-		-DCMAKE_BUILD_TYPE=Release \
-		-DLLVM_CMAKE_DIR:PATH=${TOOLCHAIN_LIB} \
-		-DCOMPILER_RT_EMULATOR:STRING="${TOOLCHAIN_BIN}/qemu_wrapper.sh" \
-		-DCMAKE_INSTALL_PREFIX:PATH=${HEX_TOOLS_TARGET_BASE} \
-		-DCMAKE_CROSSCOMPILING:BOOL=ON \
-		-DCOMPILER_RT_OS_DIR= \
-		-DCAN_TARGET_hexagon=1 \
-		-DCAN_TARGET_${ARCH}=0 \
-		-DCMAKE_C_COMPILER_FORCED:BOOL=ON \
-		-DCMAKE_CXX_COMPILER_FORCED:BOOL=ON \
-		-C ./llvm-project/compiler-rt/cmake/caches/hexagon-linux-builtins.cmake \
-		-C ./hexagon-linux-cross.cmake \
-		-B ./obj_clang_rt \
-		-S ./llvm-project/compiler-rt
-
-	cmake --build ./obj_clang_rt -- -v install-builtins
+	# Hexagon driver passes -lclang_rt.builtins-hexagon (old-style name).
+	# Create a compatibility symlink in the sysroot lib dir so the linker
+	# finds builtins during runtimes build and user builds.
+	RESOURCE_DIR=$(${TOOLCHAIN_BIN}/clang --print-resource-dir)
+	mkdir -p ${HEX_TOOLS_TARGET_BASE}/lib
+	ln -sf "${RESOURCE_DIR}/lib/hexagon-unknown-linux-musl/libclang_rt.builtins.a" \
+		${HEX_TOOLS_TARGET_BASE}/lib/libclang_rt.builtins-hexagon.a
 }
 
-
+build_runtimes() {
+	cd ${BASE}
+	cmake --build ./obj_llvm --target install-runtimes-hexagon-unknown-linux-musl
+}
 
 config_kernel() {
 	cd ${BASE}
@@ -214,9 +210,10 @@ build_musl_headers() {
 	cd musl
 	make clean
 
+	RESOURCE_DIR=$(${TOOLCHAIN_BIN}/clang --print-resource-dir)
 	CC=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/bin/hexagon-unknown-linux-musl-clang \
 		CROSS_COMPILE=${CC_PREFIX} \
-		LIBCC=${HEX_TOOLS_TARGET_BASE}/lib/libclang_rt.builtins-hexagon.a \
+		LIBCC="${RESOURCE_DIR}/lib/hexagon-unknown-linux-musl/libclang_rt.builtins.a" \
 		CROSS_CFLAGS="-G0 -O0 -mv68 -fno-builtin --target=hexagon-unknown-linux-musl" \
 		./configure --target=hexagon --prefix=${HEX_TOOLS_TARGET_BASE}
 	PATH=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/bin/:$PATH make install-headers
@@ -234,12 +231,13 @@ build_musl() {
 	cd musl
 	make clean
 
+	RESOURCE_DIR=$(${TOOLCHAIN_BIN}/clang --print-resource-dir)
 	CROSS_COMPILE=${CC_PREFIX} \
 		AR=llvm-ar \
 		RANLIB=llvm-ranlib \
 		STRIP=llvm-strip \
 		CC=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/bin/hexagon-unknown-linux-musl-clang \
-		LIBCC=${HEX_TOOLS_TARGET_BASE}/lib/libclang_rt.builtins-hexagon.a \
+		LIBCC="${RESOURCE_DIR}/lib/hexagon-unknown-linux-musl/libclang_rt.builtins.a" \
 		CFLAGS="${MUSL_CFLAGS}" \
 		./configure --target=hexagon --prefix=${HEX_TOOLS_TARGET_BASE}
 	PATH=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/bin/:$PATH make -j install
@@ -251,28 +249,6 @@ build_musl() {
 	ln -sf ../usr/lib/ld-musl-hexagon.so.1
 }
 
-
-build_libs() {
-	cd ${BASE}
-
-	PATH=${TOOLCHAIN_BIN}:${PATH} \
-		cmake -G Ninja \
-		-DCMAKE_BUILD_TYPE=Release \
-		-DLLVM_CMAKE_DIR:PATH=${TOOLCHAIN_LIB} \
-		-DCMAKE_INSTALL_PREFIX:PATH=${HEX_TOOLS_TARGET_BASE} \
-		-DCMAKE_CROSSCOMPILING:BOOL=ON \
-		-DCMAKE_CXX_COMPILER_FORCED:BOOL=ON \
-		-C ./hexagon-linux-cross.cmake \
-		-C ./llvm-project/libcxx/cmake/caches/hexagon-linux-runtimes.cmake \
-		-C ./llvm-project/compiler-rt/cmake/caches/hexagon-linux-clangrt.cmake \
-		-DCOMPILER_RT_OS_DIR= \
-		-B ./obj_libs \
-		-S ./llvm-project/runtimes
-
-	PATH=${TOOLCHAIN_BIN}:${PATH} \
-	cmake --build ./obj_libs -- -v \
-		install
-}
 
 build_sanitizers() {
 	cd ${BASE}
@@ -354,25 +330,6 @@ EOF
 	chmod +x ./qemu_wrapper.sh ${TOOLCHAIN_BIN}/qemu_wrapper.sh
 }
 
-build_clang_rt_builtins_baremetal() {
-	cd ${BASE}
-
-	PATH=${TOOLCHAIN_BIN}:${PATH} \
-		cmake -G Ninja \
-		-DCMAKE_BUILD_TYPE=Release \
-		-DLLVM_CMAKE_DIR:PATH=${TOOLCHAIN_LIB} \
-		-DCMAKE_INSTALL_PREFIX:PATH=${HEX_PICOLIBC_BASE} \
-		-DCMAKE_CROSSCOMPILING:BOOL=ON \
-		-DCOMPILER_RT_OS_DIR= \
-		-DCMAKE_C_COMPILER:STRING=${TOOLCHAIN_BIN}/clang \
-		-DCMAKE_ASM_COMPILER:STRING=${TOOLCHAIN_BIN}/clang \
-		-C ./llvm-project/compiler-rt/cmake/caches/hexagon-builtins-baremetal.cmake \
-		-B ./obj_clang_rt_baremetal \
-		-S ./llvm-project/compiler-rt
-
-	cmake --build ./obj_clang_rt_baremetal -- -v install-builtins
-}
-
 build_picolibc() {
 	cd ${BASE}
 
@@ -418,7 +375,8 @@ CROSSEOF
 		# Place builtins into per-arch lib dir where the driver will search
 		ARCHLIB=${HEX_PICOLIBC_BASE}/lib/${archver}/G0
 		mkdir -p ${ARCHLIB}
-		ln -sf ../../hexagon-unknown-none-elf/libclang_rt.builtins.a \
+		RESOURCE_DIR=$(${TOOLCHAIN_BIN}/clang --print-resource-dir)
+		ln -sf "${RESOURCE_DIR}/lib/hexagon-unknown-none-elf/libclang_rt.builtins.a" \
 			${ARCHLIB}/libclang_rt.builtins.a
 
 		meson setup \
@@ -523,13 +481,12 @@ ccache --show-stats
 config_kernel
 build_kernel_headers
 build_musl_headers
-build_clang_rt_builtins
+build_builtins
 build_musl
 
-build_libs
+build_runtimes
 #build_sanitizers
 
-build_clang_rt_builtins_baremetal
 build_picolibc
 install_baremetal_cfg
 

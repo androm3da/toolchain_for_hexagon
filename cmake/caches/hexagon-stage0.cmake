@@ -60,3 +60,80 @@ set(LLVM_DISTRIBUTION_COMPONENTS
   LTO
   ${LLVM_TOOLCHAIN_TOOLS}
   CACHE STRING "")
+# Note: builtins are NOT in LLVM_DISTRIBUTION_COMPONENTS because the
+# hexagon-unknown-linux-musl builtins need musl headers (stdlib.h) which
+# are installed later.  Build builtins explicitly via:
+#   cmake --build obj_llvm --target install-builtins
+
+# ── Per-target builtins ──────────────────────────────────────────────
+set(LLVM_BUILTIN_TARGETS "hexagon-unknown-linux-musl;hexagon-unknown-none-elf" CACHE STRING "")
+
+# Linux builtins (from compiler-rt/cmake/caches/hexagon-linux-builtins.cmake)
+# CMAKE_SYSROOT is needed because the build-tree clang doesn't resolve the
+# relative DEFAULT_SYSROOT correctly; musl headers must be installed first.
+set(BUILTINS_hexagon-unknown-linux-musl_CMAKE_SYSTEM_NAME Linux CACHE STRING "")
+set(BUILTINS_hexagon-unknown-linux-musl_CMAKE_BUILD_TYPE Release CACHE STRING "")
+set(BUILTINS_hexagon-unknown-linux-musl_CMAKE_SYSROOT
+    "${CMAKE_INSTALL_PREFIX}/target/hexagon-unknown-linux-musl" CACHE STRING "")
+set(BUILTINS_hexagon-unknown-linux-musl_CMAKE_ASM_FLAGS "-G0 -mlong-calls -fno-pic" CACHE STRING "")
+set(BUILTINS_hexagon-unknown-linux-musl_COMPILER_RT_BUILTINS_ENABLE_PIC OFF CACHE BOOL "")
+
+# Baremetal builtins (from compiler-rt/cmake/caches/hexagon-builtins-baremetal.cmake)
+set(BUILTINS_hexagon-unknown-none-elf_CMAKE_SYSTEM_NAME Generic CACHE STRING "")
+set(BUILTINS_hexagon-unknown-none-elf_CMAKE_BUILD_TYPE Release CACHE STRING "")
+set(BUILTINS_hexagon-unknown-none-elf_CMAKE_ASM_FLAGS "-G0 -mlong-calls -fno-pic" CACHE STRING "")
+set(BUILTINS_hexagon-unknown-none-elf_CMAKE_C_FLAGS "-ffreestanding" CACHE STRING "")
+set(BUILTINS_hexagon-unknown-none-elf_CMAKE_CXX_FLAGS "-ffreestanding" CACHE STRING "")
+set(BUILTINS_hexagon-unknown-none-elf_COMPILER_RT_BAREMETAL_BUILD ON CACHE BOOL "")
+set(BUILTINS_hexagon-unknown-none-elf_COMPILER_RT_BUILTINS_ENABLE_PIC OFF CACHE BOOL "")
+
+# ── Per-target runtimes (built AFTER musl, via separate build target) ─
+set(LLVM_RUNTIME_TARGETS "hexagon-unknown-linux-musl" CACHE STRING "")
+
+# Sysroot path — resolved relative to install prefix; directory populated by
+# musl build before runtimes target is requested.
+set(RUNTIMES_hexagon-unknown-linux-musl_CMAKE_SYSTEM_NAME Linux CACHE STRING "")
+set(RUNTIMES_hexagon-unknown-linux-musl_CMAKE_BUILD_TYPE Release CACHE STRING "")
+set(RUNTIMES_hexagon-unknown-linux-musl_CMAKE_INSTALL_PREFIX
+    "${CMAKE_INSTALL_PREFIX}/target/hexagon-unknown-linux-musl/usr" CACHE STRING "")
+set(RUNTIMES_hexagon-unknown-linux-musl_CMAKE_SYSROOT
+    "${CMAKE_INSTALL_PREFIX}/target/hexagon-unknown-linux-musl" CACHE STRING "")
+# Note: CMAKE_TRY_COMPILE_TARGET_TYPE is intentionally NOT set to STATIC_LIBRARY
+# here.  Runtimes configure lazily (at cmake --build time), after musl+builtins
+# are fully installed, so cmake can do real link tests.  This avoids false
+# positives from check_library_exists() (e.g. __cxa_thread_atexit_impl).
+
+# Runtimes to build (from libcxx/cmake/caches/hexagon-linux-runtimes.cmake
+# + compiler-rt/cmake/caches/hexagon-linux-clangrt.cmake)
+set(RUNTIMES_hexagon-unknown-linux-musl_LLVM_ENABLE_RUNTIMES
+    "libcxx;libcxxabi;libunwind;compiler-rt" CACHE STRING "")
+set(RUNTIMES_hexagon-unknown-linux-musl_LLVM_ENABLE_PER_TARGET_RUNTIME_DIR OFF CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_LIBCXX_HAS_MUSL_LIBC ON CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_LIBCXX_INCLUDE_BENCHMARKS OFF CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_LIBCXX_INCLUDE_TESTS OFF CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_LIBCXXABI_INCLUDE_TESTS OFF CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_LIBUNWIND_INCLUDE_TESTS OFF CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_LIBCXX_CXX_ABI libcxxabi CACHE STRING "")
+set(RUNTIMES_hexagon-unknown-linux-musl_LIBCXXABI_USE_LLVM_UNWINDER ON CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_LIBCXXABI_ENABLE_SHARED ON CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_LIBCXX_USE_COMPILER_RT ON CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_LIBCXXABI_USE_COMPILER_RT ON CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_LIBUNWIND_USE_COMPILER_RT ON CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_USE_LLVM_UNWINDER ON CACHE BOOL "")
+# compiler-rt sanitizer/xray shared libs need in-tree libc++ and builtins.
+# Following Fuchsia's runtimes configuration pattern:
+#   - COMPILER_RT_CXX_LIBRARY=libcxx: in-tree libc++ headers for C++ sources (XRay)
+#   - SANITIZER_CXX_ABI=libc++ + INTREE: link sanitizer .so against in-tree libc++abi
+#   - COMPILER_RT_USE_BUILTINS_LIBRARY=ON: statically links builtins into each
+#     compiler-rt runtime (via AddCompilerRT.cmake's add_compiler_rt_runtime),
+#     needed because Hexagon uses library calls for division (__hexagon_udivsi3
+#     etc.) and also removes -Wl,-z,defs for any remaining deferred symbols
+set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_CXX_LIBRARY "libcxx" CACHE STRING "")
+set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_USE_BUILTINS_LIBRARY ON CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_SANITIZER_CXX_ABI "libc++" CACHE STRING "")
+set(RUNTIMES_hexagon-unknown-linux-musl_SANITIZER_CXX_ABI_INTREE ON CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_BUILD_BUILTINS OFF CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_BUILD_SANITIZERS ON CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_BUILD_XRAY ON CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_BUILD_MEMPROF ON CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_BUILD_CTX_PROFILE ON CACHE BOOL "")
