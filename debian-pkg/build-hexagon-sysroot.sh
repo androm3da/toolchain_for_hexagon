@@ -470,11 +470,15 @@ build_clang_hexagon_cross() {
     mkdir -p "${cfgdir}"
     cp "${SCRIPT_DIR}/hexagon-unknown-linux-musl.cfg" "${cfgdir}/"
     cp "${SCRIPT_DIR}/hexagon-unknown-none-elf.cfg"   "${cfgdir}/"
+    cp "${SCRIPT_DIR}/hexagon-unknown-h2.cfg"         "${cfgdir}/"
 
     # Short-form .cfg aliases so clang finds config via short triples
     ln -sf "hexagon-unknown-linux-musl.cfg" "${cfgdir}/hexagon-linux-musl.cfg"
     ln -sf "hexagon-unknown-none-elf.cfg"   "${cfgdir}/hexagon-none-elf.cfg"
     ln -sf "hexagon-unknown-none-elf.cfg"   "${cfgdir}/hexagon.cfg"
+    ln -sf "hexagon-unknown-h2.cfg"         "${cfgdir}/hexagon-h2.cfg"
+    ln -sf "hexagon-unknown-h2.cfg"         "${cfgdir}/hexagon-unknown-h2-elf.cfg"
+    ln -sf "hexagon-unknown-h2.cfg"         "${cfgdir}/hexagon-h2-elf.cfg"
 
     # -- /usr/bin symlinks -----------------------------------------------
     local bindir="${stage}/usr/bin"
@@ -484,7 +488,9 @@ build_clang_hexagon_cross() {
 
     for triple in hexagon-unknown-linux-musl hexagon-unknown-none-elf \
                   hexagon-unknown-qurt hexagon-linux-musl hexagon-none-elf \
-                  hexagon-qurt hexagon; do
+                  hexagon-qurt hexagon \
+                  hexagon-unknown-h2 hexagon-h2 \
+                  hexagon-unknown-h2-elf hexagon-h2-elf; do
         # clang / clang++ / cc -- versioned and unversioned
         for tool in clang clang++; do
             ln -sf "${clang_target}" "${bindir}/${triple}-${tool}"

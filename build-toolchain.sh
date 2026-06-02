@@ -41,7 +41,7 @@ build_llvm_clang_cross() {
 	)
 	DYLIB=""
 	if [[ "${dylib}" == "ON" ]]; then
-		DYLIB="-C ./cmake/caches/hexagon-stage0-dylib.cmake"
+		DYLIB="-C ./llvm-project/clang/cmake/caches/hexagon-unknown-linux-musl-clang-dylib-dist.cmake"
 		DIST_COMPONENTS+=(LLVM clang-cpp)
 	fi
 	DIST_LIST=$(IFS=';'; echo "${DIST_COMPONENTS[*]}")
@@ -62,8 +62,9 @@ build_llvm_clang_cross() {
 		-DCMAKE_CROSSCOMPILING:BOOL=ON \
 		${EXTRA} \
 		${DYLIB} \
-		-C ./cmake/caches/hexagon-stage0.cmake \
-		-C ./cmake/caches/hexagon-stage0-cross.cmake \
+		-C ./llvm-project/clang/cmake/caches/hexagon-unknown-linux-musl-clang-defaults-dist.cmake \
+		-C ./llvm-project/clang/cmake/caches/hexagon-unknown-linux-musl-clang-dist.cmake \
+		-C ./llvm-project/clang/cmake/caches/hexagon-unknown-linux-musl-clang-cross-dist.cmake \
 		-DLLVM_ENABLE_PIC:BOOL="${pic}" \
 		-DLLVM_DISTRIBUTION_COMPONENTS="${DIST_LIST}" \
 		-B ./obj_llvm_${triple} \
@@ -101,8 +102,9 @@ build_llvm_clang() {
 		-DLLVM_ENABLE_LIBCXX:BOOL=ON \
 		-DLLVM_ENABLE_ASSERTIONS:BOOL=ON \
 		${ELD} \
-		-C ./cmake/caches/hexagon-stage0.cmake \
-		-C ./cmake/caches/hexagon-stage0-cross.cmake \
+		-C ./llvm-project/clang/cmake/caches/hexagon-unknown-linux-musl-clang-defaults-dist.cmake \
+		-C ./llvm-project/clang/cmake/caches/hexagon-unknown-linux-musl-clang-dist.cmake \
+		-C ./llvm-project/clang/cmake/caches/hexagon-unknown-linux-musl-clang-cross-dist.cmake \
 		-B ./obj_llvm \
 		-S ./llvm-project/llvm
 	cmake --build ./obj_llvm --target install-distribution
@@ -122,7 +124,7 @@ build_llvm_clang() {
 add_symlinks() {
     linkdir=${1}
 
-	for triple in hexagon-unknown-linux-musl hexagon-unknown-none-elf hexagon-unknown-qurt hexagon-linux-musl hexagon-none-elf hexagon-qurt hexagon
+	for triple in hexagon-unknown-linux-musl hexagon-unknown-none-elf hexagon-unknown-qurt hexagon-linux-musl hexagon-none-elf hexagon-qurt hexagon hexagon-unknown-h2 hexagon-h2 hexagon-unknown-h2-elf hexagon-h2-elf
 	do
 		ln -sf --relative ${linkdir}/llvm-size ${linkdir}/${triple}-size
 		ln -sf --relative ${linkdir}/llvm-strip ${linkdir}/${triple}-strip
@@ -139,7 +141,7 @@ add_symlinks() {
 		fi
 	done
 
-	for triple in hexagon-unknown-linux-musl hexagon-unknown-none-elf hexagon-unknown-qurt hexagon-linux-musl hexagon-none-elf hexagon-qurt hexagon
+	for triple in hexagon-unknown-linux-musl hexagon-unknown-none-elf hexagon-unknown-qurt hexagon-linux-musl hexagon-none-elf hexagon-qurt hexagon hexagon-unknown-h2 hexagon-h2 hexagon-unknown-h2-elf hexagon-h2-elf
 	do
 		ln -sf --relative ${linkdir}/clang ${linkdir}/${triple}-clang
 		ln -sf --relative ${linkdir}/clang ${linkdir}/${triple}-clang++
@@ -415,6 +417,10 @@ install_baremetal_cfg() {
 	cd ${BASE}
 	cp hexagon-unknown-none-elf.cfg ${TOOLCHAIN_BIN}/hexagon-unknown-none-elf.cfg
 	ln -sf hexagon-unknown-none-elf.cfg ${TOOLCHAIN_BIN}/hexagon.cfg
+	cp hexagon-unknown-h2.cfg ${TOOLCHAIN_BIN}/hexagon-unknown-h2.cfg
+	ln -sf hexagon-unknown-h2.cfg ${TOOLCHAIN_BIN}/hexagon-h2.cfg
+	ln -sf hexagon-unknown-h2.cfg ${TOOLCHAIN_BIN}/hexagon-unknown-h2-elf.cfg
+	ln -sf hexagon-unknown-h2.cfg ${TOOLCHAIN_BIN}/hexagon-h2-elf.cfg
 }
 
 purge_builds() {
@@ -512,6 +518,10 @@ do
 	cp -ra ${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/target ${TOOLCHAIN_INSTALL}/${t}
 	cp ${TOOLCHAIN_BIN}/hexagon-unknown-none-elf.cfg ${TOOLCHAIN_INSTALL}/${t}/bin/ 2>/dev/null || true
 	ln -sf hexagon-unknown-none-elf.cfg ${TOOLCHAIN_INSTALL}/${t}/bin/hexagon.cfg 2>/dev/null || true
+	cp ${TOOLCHAIN_BIN}/hexagon-unknown-h2.cfg ${TOOLCHAIN_INSTALL}/${t}/bin/ 2>/dev/null || true
+	ln -sf hexagon-unknown-h2.cfg ${TOOLCHAIN_INSTALL}/${t}/bin/hexagon-h2.cfg 2>/dev/null || true
+	ln -sf hexagon-unknown-h2.cfg ${TOOLCHAIN_INSTALL}/${t}/bin/hexagon-unknown-h2-elf.cfg 2>/dev/null || true
+	ln -sf hexagon-unknown-h2.cfg ${TOOLCHAIN_INSTALL}/${t}/bin/hexagon-h2-elf.cfg 2>/dev/null || true
 done
 build_qemu
 
