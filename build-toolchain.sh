@@ -517,11 +517,15 @@ build_qemu
 cd ${BASE}
 
 if [[ ${MAKE_TARBALLS-0} -eq 1 ]]; then
-    tar c -C $(dirname ${TOOLCHAIN_INSTALL_REL}) ${REL_NAME}/${ARCH}-linux-gnu | zstd --fast -T0 > ${RESULTS_DIR}/${REL_NAME}.tar.zst
+    tar c -C $(dirname ${TOOLCHAIN_INSTALL_REL}) ${REL_NAME}/${ARCH}-linux-gnu \
+        | python3 ${BASE}/tar-strip-symlink-modes.py \
+        | zstd --fast -T0 > ${RESULTS_DIR}/${REL_NAME}.tar.zst
 	for t in ${CROSS_ALL}
 	do
 		if [[ -d ${TOOLCHAIN_INSTALL_REL}/${t} ]]; then
-			tar c -C $(dirname ${TOOLCHAIN_INSTALL_REL}) ${REL_NAME}/${t} | zstd --fast -T0 > ${RESULTS_DIR}/${REL_NAME}_${t}.tar.zst
+			tar c -C $(dirname ${TOOLCHAIN_INSTALL_REL}) ${REL_NAME}/${t} \
+			    | python3 ${BASE}/tar-strip-symlink-modes.py \
+			    | zstd --fast -T0 > ${RESULTS_DIR}/${REL_NAME}_${t}.tar.zst
 		fi
 	done
     cd ${RESULTS_DIR}
