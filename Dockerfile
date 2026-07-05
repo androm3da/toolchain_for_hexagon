@@ -89,10 +89,24 @@ ADD test_init/test_init.c test_init/Makefile /root/hexagon-toolchain/test_init/
 ENV IN_CONTAINER 1
 
 ENV CROSS_TRIPLES ""
-ENV CROSS_TRIPLES_PIC ""
+# Static+PIC, not dylib: LLVM/Clang built via zig cc in dylib mode (two
+# separate shared libs, libLLVM.so + libclang-cpp.so) statically embeds
+# zig's own libc++ into each .so independently. LLVM's build applies
+# -fvisibility-inlines-hidden project-wide, which hides the out-of-line
+# instantiation of libc++'s std::generic_category() (an inline Meyer's
+# singleton) in each .so — so the two DSOs end up with distinct, unreachable
+# copies of that singleton at different addresses. HeaderSearch compares
+# std::error_code categories by pointer identity when deciding whether a
+# missing header means "try the next -I directory" vs. a hard error, so a
+# clang built this way silently stops searching after the first -I
+# directory that doesn't have the header (see issue #70 for the original,
+# still-unresolved-by-#71 diagnosis). Building fully static (no dylib
+# split) avoids the cross-DSO boundary entirely, matching the native host
+# build, which has never hit this. See ./toolchain_collision.md.
+ENV CROSS_TRIPLES_PIC "x86_64-linux-gnu aarch64-linux-gnu"
 # Windows/macOS zig cross-builds disabled: LLVMSupport.a missing platform
 # implementations causes link failures (llvm-config.exe, llvm-ar.exe, etc.)
-ENV CROSS_TRIPLES_DYLIB "x86_64-linux-gnu aarch64-linux-gnu"
+ENV CROSS_TRIPLES_DYLIB ""
 ADD build-toolchain.sh /root/hexagon-toolchain/build-toolchain.sh
 RUN cd /root/hexagon-toolchain && ./build-toolchain.sh ${ARTIFACT_TAG}
 

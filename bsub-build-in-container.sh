@@ -56,8 +56,9 @@ Options:
   --skip-tests         Skip test-toolchain.sh
   --skip-buildroot     Skip build-buildroot.sh
   --with-zig           Download zig and enable cross-compilation for
-                       x86_64-linux-gnu, aarch64-linux-gnu,
-                       aarch64-windows-gnu, x86_64-windows-gnu, aarch64-macos
+                       x86_64-linux-gnu, aarch64-linux-gnu (static+PIC),
+                       aarch64-windows-gnu, x86_64-windows-gnu (static+PIC),
+                       aarch64-macos (dylib)
   --queue QUEUE        LSF queue (default: ${LSF_QUEUE})
   --dry-run            Print bsub command without submitting
   --probe-only         Just probe the node environment and exit
@@ -230,9 +231,14 @@ run_payload() {
         echo "zig installed: $(zig version)"
 
         export CROSS_TRIPLES=""
-        # Windows targets cannot use LLVM dylib — use PIC-only instead
-        export CROSS_TRIPLES_PIC="aarch64-windows-gnu x86_64-windows-gnu"
-        export CROSS_TRIPLES_DYLIB="x86_64-linux-gnu aarch64-linux-gnu aarch64-macos"
+        # Windows targets, and now also Linux-gnu targets, cannot use LLVM
+        # dylib mode — use PIC-only (static) instead. See ./toolchain_collision.md:
+        # a clang built via zig cc in dylib mode (two separate shared libs)
+        # silently breaks multi-directory -I header search, because
+        # -fvisibility-inlines-hidden hides libc++'s std::generic_category()
+        # singleton differently in each DSO.
+        export CROSS_TRIPLES_PIC="aarch64-windows-gnu x86_64-windows-gnu x86_64-linux-gnu aarch64-linux-gnu"
+        export CROSS_TRIPLES_DYLIB="aarch64-macos"
     else
         # No zig — skip cross-compilation for other host triples
         export CROSS_TRIPLES=""

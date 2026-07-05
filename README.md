@@ -49,6 +49,12 @@ with position-independent code.  This is required for eld and implies that
 eld should be included with this toolchain.
 * optional `CROSS_TRIPLES_DYLIB` - additional cross toolchain builds that
 link LLVM and clang as shared libraries (`libLLVM.so` / `libclang-cpp.so`).
+Avoid Linux/glibc triples here when using zig as the cross-compiler: LLVM's
+`-fvisibility-inlines-hidden` plus each shared library statically embedding
+its own copy of zig's bundled libc++ causes `std::generic_category()` to
+resolve to a different object per DSO, which silently breaks multi-directory
+`-I` header search in the resulting clang. Use `CROSS_TRIPLES_PIC` (static)
+for those instead. See `./toolchain_collision.md` for the full analysis.
 
 Sample usage:
 
@@ -58,8 +64,8 @@ Sample usage:
     export ARTIFACT_BASE=$PWD/artifacts
     export TEST_TOOLCHAIN=0
     export CROSS_TRIPLES=""
-    export CROSS_TRIPLES_PIC="aarch64-windows-gnu x86_64-windows-gnu"
-    export CROSS_TRIPLES_DYLIB="x86_64-linux-gnu aarch64-linux-gnu aarch64-macos"
+    export CROSS_TRIPLES_PIC="aarch64-windows-gnu x86_64-windows-gnu x86_64-linux-gnu aarch64-linux-gnu"
+    export CROSS_TRIPLES_DYLIB="aarch64-macos"
 
     mkdir -p ${ARTIFACT_BASE}
 
