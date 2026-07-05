@@ -25,7 +25,7 @@ get_src_tarballs() {
 	wget --quiet ${LLVM_SRC_URL} -O llvm-project.tar.xz
 	mkdir llvm-project
 	cd llvm-project
-	tar xf ../llvm-project.tar.xz --strip-components=1
+	tar xf ../llvm-project.tar.xz --strip-components=1 --no-same-permissions
 	rm ../llvm-project.tar.xz
 	echo ${LLVM_SRC_URL} > ${MANIFEST_DIR}/llvm-project.txt
 	apply_patches llvm-project llvmorg-${VER}
@@ -34,7 +34,7 @@ get_src_tarballs() {
 	wget --quiet ${ELD_SRC_URL} -O eld.tar.xz
 	mkdir llvm-project/eld
 	cd llvm-project/eld
-	tar xf ../../eld.tar.xz --strip-components=1
+	tar xf ../../eld.tar.xz --strip-components=1 --no-same-permissions
 	rm ../../eld.tar.xz
 	echo ${ELD_SRC_URL} > ${MANIFEST_DIR}/eld.txt
 	apply_patches eld v${VER}-rc3
@@ -43,7 +43,7 @@ get_src_tarballs() {
 	wget --quiet ${LLVM_TESTS_SRC_URL} -O llvm-test-suite.tar.xz
 	mkdir llvm-test-suite
 	cd llvm-test-suite
-	tar xf ../llvm-test-suite.tar.xz --strip-components=1
+	tar xf ../llvm-test-suite.tar.xz --strip-components=1 --no-same-permissions
 	rm ../llvm-test-suite.tar.xz
 	echo ${LLVM_TESTS_SRC_URL} > ${MANIFEST_DIR}/llvm-test-suite.txt
 	cd -
@@ -57,7 +57,7 @@ get_src_tarballs() {
 	wget --quiet ${MUSL_SRC_URL} -O musl.tar.xz
 	mkdir musl
 	cd musl
-	tar xf ../musl.tar.xz --strip-components=1
+	tar xf ../musl.tar.xz --strip-components=1 --no-same-permissions
 	rm ../musl.tar.xz
 	echo ${MUSL_SRC_URL} > ${MANIFEST_DIR}/musl.txt
 	cd -
@@ -65,21 +65,21 @@ get_src_tarballs() {
 	wget --quiet ${BUILDROOT_SRC_URL} -O buildroot.tar.xz
 	mkdir buildroot
 	cd buildroot
-	tar xf ../buildroot.tar.xz --strip-components=1
+	tar xf ../buildroot.tar.xz --strip-components=1 --no-same-permissions
 	echo ${BUILDROOT_SRC_URL} > ${MANIFEST_DIR}/buildroot.txt
 	cd -
 
 	wget --quiet ${LINUX_SRC_URL} -O linux.tar.xz
 	mkdir linux
 	cd linux
-	tar xf ../linux.tar.xz --strip-components=1
+	tar xf ../linux.tar.xz --strip-components=1 --no-same-permissions
 	echo ${LINUX_SRC_URL} > ${MANIFEST_DIR}/linux.txt
 	cd -
 
 	wget --quiet ${PICOLIBC_SRC_URL} -O picolibc.tar.xz
 	mkdir picolibc
 	cd picolibc
-	tar xf ../picolibc.tar.xz --strip-components=1
+	tar xf ../picolibc.tar.xz --strip-components=1 --no-same-permissions
 	rm ../picolibc.tar.xz
 	echo ${PICOLIBC_SRC_URL} > ${MANIFEST_DIR}/picolibc.txt
 	cd -

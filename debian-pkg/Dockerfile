@@ -42,11 +42,16 @@ WORKDIR /root/hexagon-toolchain
 # ── Copy build scripts, configs, and patches ────────────────────────
 COPY debian-pkg/ debian-pkg/
 COPY patches/    patches/
+COPY strip1-extract.py strip1-extract.py
 
 # ── Download & extract sources ──────────────────────────────────────
+# GNU tar 1.35 (this image's Ubuntu 24.04) fails extracting these large
+# archives under rootless podman with "Cannot change mode: Operation not
+# permitted" -- use strip1-extract.py (Python's tarfile) instead. See
+# strip1-extract.py for details.
 RUN wget -q "${LLVM_SRC_URL}" -O llvm-project.tar.gz && \
     mkdir llvm-project && \
-    tar xf llvm-project.tar.gz -C llvm-project --strip-components=1 && \
+    python3 strip1-extract.py llvm-project.tar.gz llvm-project && \
     rm llvm-project.tar.gz && \
     cd llvm-project && \
     for p in /root/hexagon-toolchain/patches/llvm-project/llvmorg-${VER}/*.patch; do \
@@ -55,17 +60,17 @@ RUN wget -q "${LLVM_SRC_URL}" -O llvm-project.tar.gz && \
 
 RUN wget -q "${MUSL_SRC_URL}" -O musl.tar.gz && \
     mkdir musl && \
-    tar xf musl.tar.gz -C musl --strip-components=1 && \
+    python3 strip1-extract.py musl.tar.gz musl && \
     rm musl.tar.gz
 
 RUN wget -q "${LINUX_SRC_URL}" -O linux.tar.xz && \
     mkdir linux && \
-    tar xf linux.tar.xz -C linux --strip-components=1 && \
+    python3 strip1-extract.py linux.tar.xz linux && \
     rm linux.tar.xz
 
 RUN wget -q "${PICOLIBC_SRC_URL}" -O picolibc.tar.xz && \
     mkdir picolibc && \
-    tar xf picolibc.tar.xz -C picolibc --strip-components=1 && \
+    python3 strip1-extract.py picolibc.tar.xz picolibc && \
     rm picolibc.tar.xz
 
 # ── Build .deb packages ─────────────────────────────────────────────
