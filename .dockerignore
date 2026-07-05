@@ -12,4 +12,5 @@
 !build-toolchain.sh
 !build-buildroot.sh
 !test-toolchain.sh
+!tar-strip-symlink-modes.py
 !debian-pkg/
