@@ -511,11 +511,24 @@ build_runtimes
 build_picolibc
 install_baremetal_cfg
 
+RESOURCE_DIR=$(${TOOLCHAIN_BIN}/clang --print-resource-dir)
 for t in ${CROSS_ALL}
 do
 	cp -ra ${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/target ${TOOLCHAIN_INSTALL}/${t}
 	cp ${TOOLCHAIN_BIN}/hexagon-unknown-none-elf.cfg ${TOOLCHAIN_INSTALL}/${t}/bin/ 2>/dev/null || true
 	ln -sf hexagon-unknown-none-elf.cfg ${TOOLCHAIN_INSTALL}/${t}/bin/hexagon.cfg 2>/dev/null || true
+
+	# install-builtins/install-runtimes-hexagon-unknown-linux-musl only ever
+	# run against the native obj_llvm build, so each cross triple's own
+	# resource dir is missing the actual Hexagon-target runtime objects
+	# (libclang_rt.builtins.a, clang_rt.crtbegin.o, clang_rt.crtend.o) that
+	# the compat symlink under target/.../usr/lib (copied above) points at
+	# -- linking any Linux-target program with this cross triple's clang
+	# fails with "unable to find library -lclang_rt.builtins-hexagon"
+	# without this.
+	CROSS_RESOURCE_DIR=$(${TOOLCHAIN_INSTALL}/${t}/bin/clang --print-resource-dir)
+	mkdir -p ${CROSS_RESOURCE_DIR}/lib/hexagon-unknown-linux-musl
+	cp -a ${RESOURCE_DIR}/lib/hexagon-unknown-linux-musl/. ${CROSS_RESOURCE_DIR}/lib/hexagon-unknown-linux-musl/
 done
 build_qemu
 
