@@ -15,6 +15,12 @@ DOCKER_BUILD_ARGS="
 --build-arg ARTIFACT_BASE=/usr/local/hexagon-artifacts
 --build-arg ARTIFACT_TAG=${ARTIFACT_TAG}"
 
+if test -n "$TEST_TOOLCHAIN"
+then
+    DOCKER_BUILD_ARGS="${DOCKER_BUILD_ARGS}
+--build-arg TEST_TOOLCHAIN=${TEST_TOOLCHAIN}"
+fi
+
 #build
 docker build ${DOCKER_BUILD_ARGS} -t hexagon:latest -f ./Dockerfile .
 echo skip windows qemu for now
