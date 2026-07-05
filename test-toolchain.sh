@@ -5,8 +5,9 @@
 
 STAMP=${1-$(date +"%Y_%b_%d")}
 LLVM_TS_PER_TEST_TIMEOUT_SEC=$((10 * 60))
-# Must match build-toolchain.sh's NATIVE_TRIPLE exactly.
-NATIVE_TRIPLE="$(uname -p)-$(lsb_release -is | tr '[:upper:]' '[:lower:]')-$(lsb_release -rs)"
+# Must match build-toolchain.sh's NATIVE_TRIPLE exactly, unless overridden
+# (e.g. to test a CROSS_TRIPLES_PIC/DYLIB package instead of the native one).
+NATIVE_TRIPLE="${NATIVE_TRIPLE:-$(uname -p)-$(lsb_release -is | tr '[:upper:]' '[:lower:]')-$(lsb_release -rs)}"
 
 # For now let's limit the scope of this test suite
 
