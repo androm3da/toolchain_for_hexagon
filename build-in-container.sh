@@ -34,7 +34,8 @@ docker images
 for name in hexagon; do
     docker rm -f tmp_container || /bin/true
     docker create --name tmp_container $name:latest
-    docker cp tmp_container:/usr/local/hexagon-artifacts ./hexagon-artifacts
+    mkdir -p ./hexagon-artifacts
+    docker cp tmp_container:/usr/local/hexagon-artifacts/. ./hexagon-artifacts
     docker rm tmp_container
 done
 
