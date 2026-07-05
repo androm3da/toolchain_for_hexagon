@@ -5,7 +5,10 @@
 
 TOOLCHAIN_ROOT ?= /opt/clang+llvm-22.1.0-cross-hexagon-unknown-linux-musl
 
-HOST_DIR      := $(TOOLCHAIN_ROOT)/x86_64-linux-gnu
+# Native host dir name varies with the build host's OS/version
+# (e.g. x86_64-ubuntu-22.04) to avoid colliding with cross-triple
+# packages named x86_64-linux-gnu / aarch64-linux-gnu.
+HOST_DIR      := $(firstword $(wildcard $(TOOLCHAIN_ROOT)/x86_64-*))
 BIN_DIR       := $(HOST_DIR)/bin
 
 # Linux cross-compiler (hexagon-unknown-linux-musl)

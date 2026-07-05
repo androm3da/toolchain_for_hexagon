@@ -5,6 +5,8 @@
 
 STAMP=${1-$(date +"%Y_%b_%d")}
 LLVM_TS_PER_TEST_TIMEOUT_SEC=$((10 * 60))
+# Must match build-toolchain.sh's NATIVE_TRIPLE exactly.
+NATIVE_TRIPLE="$(uname -p)-$(lsb_release -is | tr '[:upper:]' '[:lower:]')-$(lsb_release -rs)"
 
 # For now let's limit the scope of this test suite
 
@@ -60,7 +62,7 @@ test_qemu() {
 	cd obj_qemu
 
 	make check V=1 --keep-going
-	PATH=${TOOLCHAIN_INSTALL}/x86_64-linux-gnu/bin:$PATH \
+	PATH=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/bin:$PATH \
 		QEMU_LD_PREFIX=${HEX_TOOLS_TARGET_BASE} \
 		make check-tcg TIMEOUT=180 CROSS_CC_GUEST=hexagon-unknown-linux-musl-clang V=1 --keep-going
 	qemu_result=${?}
@@ -76,7 +78,7 @@ test_libc() {
 CFLAGS+=${MUSL_CFLAGS}
 EOF
 
-	PATH=${TOOLCHAIN_INSTALL}/x86_64-linux-gnu/bin/:$PATH \
+	PATH=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/bin/:$PATH \
 		CC=${TOOLCHAIN_BIN}/hexagon-unknown-linux-musl-clang \
 		QEMU_LD_PREFIX=${HEX_TOOLS_TARGET_BASE} \
 		make V=1 \
@@ -93,8 +95,8 @@ EOF
 
 TOOLCHAIN_INSTALL_REL=${TOOLCHAIN_INSTALL}
 TOOLCHAIN_INSTALL=$(readlink -f ${TOOLCHAIN_INSTALL})
-TOOLCHAIN_BIN=${TOOLCHAIN_INSTALL}/x86_64-linux-gnu/bin
-HEX_SYSROOT=${TOOLCHAIN_INSTALL}/x86_64-linux-gnu/target/hexagon-unknown-linux-musl
+TOOLCHAIN_BIN=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/bin
+HEX_SYSROOT=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/target/hexagon-unknown-linux-musl
 HEX_TOOLS_TARGET_BASE=${HEX_SYSROOT}/usr
 ROOT_INSTALL_REL=${ROOT_INSTALL}
 #ROOTFS=$(readlink -f ${ROOT_INSTALL})

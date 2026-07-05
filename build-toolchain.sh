@@ -6,6 +6,11 @@
 STAMP=${1-$(date +"%Y_%b_%d")}
 readonly CC_PREFIX=hexagon-unknown-linux-musl-
 readonly ARCH=`uname -p`
+# Host-specific, not a generic "${ARCH}-linux-gnu": a cross triple named
+# exactly that (e.g. CROSS_TRIPLES_PIC="x86_64-linux-gnu") would otherwise
+# resolve to the same CMAKE_INSTALL_PREFIX as the native build below and
+# silently overwrite it. See ./toolchain_collision.md.
+readonly NATIVE_TRIPLE="${ARCH}-$(lsb_release -is | tr '[:upper:]' '[:lower:]')-$(lsb_release -rs)"
 
 set -euo pipefail
 set -x
@@ -94,7 +99,7 @@ build_llvm_clang() {
 	fi
 
 	CC=clang CXX=clang++ cmake -G Ninja \
-		-DCMAKE_INSTALL_PREFIX:PATH=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/ \
+		-DCMAKE_INSTALL_PREFIX:PATH=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/ \
 		${CMAKE_CCACHE-} \
 		${CMAKE_LINK_JOBS-} \
 		-DLLVM_ENABLE_LLD:BOOL=ON \
@@ -115,7 +120,7 @@ build_llvm_clang() {
 		cmake --build ./obj_llvm --target install-ld.eld
 	fi
 
-	DEST_BIN=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/bin
+	DEST_BIN=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/bin
 	add_symlinks ${DEST_BIN}
 }
 
@@ -186,9 +191,9 @@ config_kernel() {
 	cd linux
 	make O=../obj_linux ARCH=hexagon \
 		CROSS_COMPILE=${CC_PREFIX} \
-		CC=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/bin/clang \
-		AS=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/bin/clang \
-		LD=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/bin/ld.lld \
+		CC=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/bin/clang \
+		AS=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/bin/clang \
+		LD=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/bin/ld.lld \
 		LLVM=1 \
 		LLVM_IAS=1 \
 		KBUILD_VERBOSE=1 comet_defconfig
@@ -202,7 +207,7 @@ build_kernel_headers() {
 	cd obj_linux
 	make \
 	        ARCH=hexagon \
-		CC=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/bin/clang \
+		CC=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/bin/clang \
 		INSTALL_HDR_PATH=${HEX_TOOLS_TARGET_BASE} \
 		V=1 \
 		headers_install
@@ -215,12 +220,12 @@ build_musl_headers() {
 	make clean
 
 	RESOURCE_DIR=$(${TOOLCHAIN_BIN}/clang --print-resource-dir)
-	CC=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/bin/hexagon-unknown-linux-musl-clang \
+	CC=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/bin/hexagon-unknown-linux-musl-clang \
 		CROSS_COMPILE=${CC_PREFIX} \
 		LIBCC="${RESOURCE_DIR}/lib/hexagon-unknown-linux-musl/libclang_rt.builtins.a" \
 		CROSS_CFLAGS="-G0 -O0 -mv68 -fno-builtin --target=hexagon-unknown-linux-musl" \
 		./configure --target=hexagon --prefix=${HEX_TOOLS_TARGET_BASE}
-	PATH=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/bin/:$PATH make install-headers
+	PATH=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/bin/:$PATH make install-headers
 
 	cd ${HEX_SYSROOT}/..
 	ln -sf hexagon-unknown-linux-musl hexagon
@@ -240,11 +245,11 @@ build_musl() {
 		AR=llvm-ar \
 		RANLIB=llvm-ranlib \
 		STRIP=llvm-strip \
-		CC=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/bin/hexagon-unknown-linux-musl-clang \
+		CC=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/bin/hexagon-unknown-linux-musl-clang \
 		LIBCC="${RESOURCE_DIR}/lib/hexagon-unknown-linux-musl/libclang_rt.builtins.a" \
 		CFLAGS="${MUSL_CFLAGS}" \
 		./configure --target=hexagon --prefix=${HEX_TOOLS_TARGET_BASE}
-	PATH=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/bin/:$PATH make -j install
+	PATH=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/bin/:$PATH make -j install
 	cd ${HEX_TOOLS_TARGET_BASE}/lib
 	ln -sf libc.so ld-musl-hexagon.so
 	ln -sf ld-musl-hexagon.so ld-musl-hexagon.so.1
@@ -310,13 +315,13 @@ build_qemu() {
 	                  --disable-libssh \
 	                  --disable-libnfs \
 	                  --disable-rbd \
-		--target-list=hexagon-softmmu,hexagon-linux-user --prefix=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu \
+		--target-list=hexagon-softmmu,hexagon-linux-user --prefix=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE} \
 		--extra-cflags="-Wno-error=misleading-indentation" \
 
 #	--cc=clang \
 #	--cross-prefix=hexagon-unknown-linux-musl-
 #	--cross-cc-hexagon="hexagon-unknown-linux-musl-clang" \
-#		--cross-cc-cflags-hexagon="-mv67 --sysroot=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/target/hexagon-unknown-linux-musl"
+#		--cross-cc-cflags-hexagon="-mv67 --sysroot=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/target/hexagon-unknown-linux-musl"
 
 	make -j
 	make -j install
@@ -328,7 +333,7 @@ set -euo pipefail
 
 export QEMU_LD_PREFIX=${HEX_TOOLS_TARGET_BASE}
 
-exec ${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/bin/qemu-hexagon \$*
+exec ${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/bin/qemu-hexagon \$*
 EOF
 	cp ./qemu_wrapper.sh ${TOOLCHAIN_BIN}/
 	chmod +x ./qemu_wrapper.sh ${TOOLCHAIN_BIN}/qemu_wrapper.sh
@@ -406,7 +411,7 @@ CROSSEOF
 	done
 
 	# Create convenience symlinks for the bare triple forms
-	cd ${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/target/picolibc
+	cd ${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/target/picolibc
 	ln -sf hexagon-unknown-none-elf hexagon-none-elf 2>/dev/null || true
 }
 
@@ -422,11 +427,11 @@ purge_builds() {
 
 TOOLCHAIN_INSTALL_REL=${TOOLCHAIN_INSTALL}
 TOOLCHAIN_INSTALL=$(readlink -f ${TOOLCHAIN_INSTALL})
-TOOLCHAIN_BIN=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/bin
-TOOLCHAIN_LIB=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/lib
-HEX_SYSROOT=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/target/hexagon-unknown-linux-musl
+TOOLCHAIN_BIN=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/bin
+TOOLCHAIN_LIB=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/lib
+HEX_SYSROOT=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/target/hexagon-unknown-linux-musl
 HEX_TOOLS_TARGET_BASE=${HEX_SYSROOT}/usr
-HEX_PICOLIBC_BASE=${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/target/picolibc/hexagon-unknown-none-elf
+HEX_PICOLIBC_BASE=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/target/picolibc/hexagon-unknown-none-elf
 ROOT_INSTALL_REL=${ROOT_INSTALL}
 ROOTFS=$(readlink -f ${ROOT_INSTALL})
 RESULTS_DIR_=${ARTIFACT_BASE}/${ARTIFACT_TAG}
@@ -508,7 +513,7 @@ install_baremetal_cfg
 
 for t in ${CROSS_ALL}
 do
-	cp -ra ${TOOLCHAIN_INSTALL}/${ARCH}-linux-gnu/target ${TOOLCHAIN_INSTALL}/${t}
+	cp -ra ${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/target ${TOOLCHAIN_INSTALL}/${t}
 	cp ${TOOLCHAIN_BIN}/hexagon-unknown-none-elf.cfg ${TOOLCHAIN_INSTALL}/${t}/bin/ 2>/dev/null || true
 	ln -sf hexagon-unknown-none-elf.cfg ${TOOLCHAIN_INSTALL}/${t}/bin/hexagon.cfg 2>/dev/null || true
 done
@@ -517,7 +522,7 @@ build_qemu
 cd ${BASE}
 
 if [[ ${MAKE_TARBALLS-0} -eq 1 ]]; then
-    tar c -C $(dirname ${TOOLCHAIN_INSTALL_REL}) ${REL_NAME}/${ARCH}-linux-gnu \
+    tar c -C $(dirname ${TOOLCHAIN_INSTALL_REL}) ${REL_NAME}/${NATIVE_TRIPLE} \
         | python3 ${BASE}/tar-strip-symlink-modes.py \
         | zstd --fast -T0 > ${RESULTS_DIR}/${REL_NAME}.tar.zst
 	for t in ${CROSS_ALL}

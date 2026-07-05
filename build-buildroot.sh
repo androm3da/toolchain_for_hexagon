@@ -6,11 +6,13 @@
 set -euo pipefail
 
 BASE=$(readlink -f ${PWD})
+# Must match build-toolchain.sh's NATIVE_TRIPLE exactly.
+NATIVE_TRIPLE="$(uname -p)-$(lsb_release -is | tr '[:upper:]' '[:lower:]')-$(lsb_release -rs)"
 
 set -x
 TOOLCHAIN_INSTALL_REL=${TOOLCHAIN_INSTALL}
 TOOLCHAIN_INSTALL=$(readlink -f ${TOOLCHAIN_INSTALL})
-TOOLCHAIN_BIN=${TOOLCHAIN_INSTALL}/x86_64-linux-gnu/bin
+TOOLCHAIN_BIN=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/bin
 export PATH=${TOOLCHAIN_BIN}:${PATH}
 
 # TODO: change build to use unprivileged user

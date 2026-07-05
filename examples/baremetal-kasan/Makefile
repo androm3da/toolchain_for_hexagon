@@ -83,7 +83,7 @@ CFLAGS += -Wno-incompatible-library-redeclaration
 CFLAGS += -I$(KASAN_SRC)/third_party -I$(KASAN_SRC)/third_party/printf -I$(KASAN_SRC)
 
 # Builtins library for compiler-generated calls (__hexagon_udivsi3, etc.)
-PICOLIBC_SYSROOT := $(TOOLCHAIN_ROOT)/x86_64-linux-gnu/target/picolibc/hexagon-unknown-none-elf
+PICOLIBC_SYSROOT := $(HOST_DIR)/target/picolibc/hexagon-unknown-none-elf
 BUILTINS_LIB := $(PICOLIBC_SYSROOT)/lib/$(HEX_CPU)/G0/libclang_rt.builtins.a
 
 LDFLAGS := -nostdlib

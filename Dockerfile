@@ -8,7 +8,7 @@ ENV PATH="/opt/zig-linux-x86_64-0.11.0:$PATH"
 RUN apt update && \
     DEBIAN_FRONTEND=noninteractive apt install -yy \
 	apt-transport-https ca-certificates \
-        eatmydata software-properties-common wget gpgv2 unzip && \
+        eatmydata software-properties-common wget gpgv2 unzip lsb-release && \
     DEBIAN_FRONTEND=noninteractive eatmydata \
 	wget --quiet https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz && \
 	tar xf ./zig-linux-x86_64-0.11.0.tar.xz --directory /opt && \

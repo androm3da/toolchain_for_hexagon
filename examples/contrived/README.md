@@ -34,6 +34,11 @@ Download and install the hexagon open source toolchain from https://github.com/q
 
 ## Setup
 
+Note: the native host directory under the toolchain root is named after
+the build host's OS/version (e.g. `x86_64-ubuntu-22.04`), not a fixed
+`x86_64-linux-gnu` — check `ls` on your extracted toolchain and adjust
+the paths below accordingly.
+
 Edit the `.cargo/config` to point to your toolchain's C library:
 
     ...
