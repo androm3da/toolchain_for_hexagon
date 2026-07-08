@@ -5,6 +5,8 @@
 
 set -euo pipefail
 
+CURL_RETRY_OPTS=(--fail --location --silent --show-error --retry 5 --retry-delay 30)
+
 apply_patches() {
 	local repo_name=$1
 	local tag_name=$2
@@ -22,7 +24,7 @@ get_src_tarballs() {
 	cd ${SRC_DIR}
 	mkdir -p ${MANIFEST_DIR}
 
-	wget --quiet ${LLVM_SRC_URL} -O llvm-project.tar.xz
+	curl "${CURL_RETRY_OPTS[@]}" ${LLVM_SRC_URL} -o llvm-project.tar.xz
 	mkdir llvm-project
 	cd llvm-project
 	tar xf ../llvm-project.tar.xz --strip-components=1 --no-same-permissions
@@ -31,7 +33,7 @@ get_src_tarballs() {
 	apply_patches llvm-project llvmorg-${VER}
 	cd -
 
-	wget --quiet ${ELD_SRC_URL} -O eld.tar.xz
+	curl "${CURL_RETRY_OPTS[@]}" ${ELD_SRC_URL} -o eld.tar.xz
 	mkdir llvm-project/eld
 	cd llvm-project/eld
 	tar xf ../../eld.tar.xz --strip-components=1 --no-same-permissions
@@ -40,7 +42,7 @@ get_src_tarballs() {
 	apply_patches eld v${VER}-rc3
 	cd -
 
-	wget --quiet ${LLVM_TESTS_SRC_URL} -O llvm-test-suite.tar.xz
+	curl "${CURL_RETRY_OPTS[@]}" ${LLVM_TESTS_SRC_URL} -o llvm-test-suite.tar.xz
 	mkdir llvm-test-suite
 	cd llvm-test-suite
 	tar xf ../llvm-test-suite.tar.xz --strip-components=1 --no-same-permissions
@@ -48,13 +50,16 @@ get_src_tarballs() {
 	echo ${LLVM_TESTS_SRC_URL} > ${MANIFEST_DIR}/llvm-test-suite.txt
 	cd -
 
-	git clone --branch ${QEMU_REF} ${QEMU_REPO}
+	local qemu_src_url=${QEMU_REPO}/archive/${QEMU_REF}.tar.gz
+	curl "${CURL_RETRY_OPTS[@]}" ${qemu_src_url} -o qemu.tar.gz
+	mkdir qemu
 	cd qemu
-	git remote -v > ${MANIFEST_DIR}/qemu.txt
-	git log -3 HEAD >> ${MANIFEST_DIR}/qemu.txt
+	tar xf ../qemu.tar.gz --strip-components=1 --no-same-permissions
+	rm ../qemu.tar.gz
+	echo ${qemu_src_url} > ${MANIFEST_DIR}/qemu.txt
 	cd -
 
-	wget --quiet ${MUSL_SRC_URL} -O musl.tar.xz
+	curl "${CURL_RETRY_OPTS[@]}" ${MUSL_SRC_URL} -o musl.tar.xz
 	mkdir musl
 	cd musl
 	tar xf ../musl.tar.xz --strip-components=1 --no-same-permissions
@@ -62,21 +67,21 @@ get_src_tarballs() {
 	echo ${MUSL_SRC_URL} > ${MANIFEST_DIR}/musl.txt
 	cd -
 
-	wget --quiet ${BUILDROOT_SRC_URL} -O buildroot.tar.xz
+	curl "${CURL_RETRY_OPTS[@]}" ${BUILDROOT_SRC_URL} -o buildroot.tar.xz
 	mkdir buildroot
 	cd buildroot
 	tar xf ../buildroot.tar.xz --strip-components=1 --no-same-permissions
 	echo ${BUILDROOT_SRC_URL} > ${MANIFEST_DIR}/buildroot.txt
 	cd -
 
-	wget --quiet ${LINUX_SRC_URL} -O linux.tar.xz
+	curl "${CURL_RETRY_OPTS[@]}" ${LINUX_SRC_URL} -o linux.tar.xz
 	mkdir linux
 	cd linux
 	tar xf ../linux.tar.xz --strip-components=1 --no-same-permissions
 	echo ${LINUX_SRC_URL} > ${MANIFEST_DIR}/linux.txt
 	cd -
 
-	wget --quiet ${PICOLIBC_SRC_URL} -O picolibc.tar.xz
+	curl "${CURL_RETRY_OPTS[@]}" ${PICOLIBC_SRC_URL} -o picolibc.tar.xz
 	mkdir picolibc
 	cd picolibc
 	tar xf ../picolibc.tar.xz --strip-components=1 --no-same-permissions
