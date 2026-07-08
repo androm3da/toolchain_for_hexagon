@@ -525,8 +525,10 @@ do
 	# the compat symlink under target/.../usr/lib (copied above) points at
 	# -- linking any Linux-target program with this cross triple's clang
 	# fails with "unable to find library -lclang_rt.builtins-hexagon"
-	# without this.
-	CROSS_RESOURCE_DIR=$(${TOOLCHAIN_INSTALL}/${t}/bin/clang --print-resource-dir)
+	# without this. Derive the path by substituting the triple rather than
+	# executing the cross clang binary, which may not be runnable on the
+	# build host (e.g. aarch64-linux-gnu without binfmt/qemu-user set up).
+	CROSS_RESOURCE_DIR=${RESOURCE_DIR/\/${NATIVE_TRIPLE}\//\/${t}\/}
 	mkdir -p ${CROSS_RESOURCE_DIR}/lib/hexagon-unknown-linux-musl
 	cp -a ${RESOURCE_DIR}/lib/hexagon-unknown-linux-musl/. ${CROSS_RESOURCE_DIR}/lib/hexagon-unknown-linux-musl/
 done
