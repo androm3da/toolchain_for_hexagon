@@ -57,7 +57,7 @@ RUN apt update && \
 
 # From env.sh
 ARG QEMU_REPO=https://github.com/qualcomm/qemu
-ARG QEMU_REF=hexagon-sysemu-03-july-2026
+ARG QEMU_REF=hexagon-sysemu-08-july-2026
 
 ARG ARTIFACT_BASE
 ARG ARTIFACT_TAG
