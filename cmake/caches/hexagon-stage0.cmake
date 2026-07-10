@@ -171,11 +171,20 @@ set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_USE_BUILTINS_LIBRARY ON CACH
 set(RUNTIMES_hexagon-unknown-linux-musl_SANITIZER_CXX_ABI "libc++" CACHE STRING "")
 set(RUNTIMES_hexagon-unknown-linux-musl_SANITIZER_CXX_ABI_INTREE ON CACHE BOOL "")
 set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_BUILD_BUILTINS OFF CACHE BOOL "")
-# sanitizer_common fails to build on this release branch (struct stat64 is
-# incomplete on musl); the fix only exists on llvm-project main. Disable
-# everything that pulls in sanitizer_common (see compiler-rt/lib/CMakeLists.txt)
-# until that fix lands in a release we consume.
-set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_BUILD_SANITIZERS OFF CACHE BOOL "")
+# sanitizer_common's struct-stat64-on-musl issue is fixed on llvm-project main
+# (the branch this cache targets), so RTSan/TySan/Scudo/GWP-ASan -- all of
+# which pull in sanitizer_common -- can now be built. hexagon is already
+# present in each feature's ALL_<X>_SUPPORTED_ARCH list in
+# compiler-rt/cmake/Modules/AllSupportedArchDefs.cmake, so no arch-list patch
+# is needed. Scope COMPILER_RT_SANITIZERS_TO_BUILD to just these 4 features
+# (default is "all", which would also pull in asan/msan/tsan/hwasan/dfsan/
+# nsan/cfi/safestack/ubsan_minimal/asan_abi -- untested on Hexagon).
+# Shadow-call-stack is a pure codegen+linker feature (-ffixed-r19, no
+# compiler-rt runtime component) and kcfi is kernel-only; neither needs a
+# COMPILER_RT_BUILD_* flag here.
+set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_BUILD_SANITIZERS ON CACHE BOOL "")
+set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_SANITIZERS_TO_BUILD
+    "rtsan;tysan;scudo_standalone;gwp_asan" CACHE STRING "")
 set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_BUILD_XRAY OFF CACHE BOOL "")
 set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_BUILD_MEMPROF OFF CACHE BOOL "")
 set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_BUILD_CTX_PROFILE OFF CACHE BOOL "")
