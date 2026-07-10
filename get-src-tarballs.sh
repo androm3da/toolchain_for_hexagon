@@ -30,7 +30,7 @@ get_src_tarballs() {
 	tar xf ../llvm-project.tar.xz --strip-components=1 --no-same-permissions
 	rm ../llvm-project.tar.xz
 	echo ${LLVM_SRC_URL} > ${MANIFEST_DIR}/llvm-project.txt
-	apply_patches llvm-project llvmorg-${VER}
+	apply_patches llvm-project "${LLVM_PATCH_TAG:-llvmorg-${VER}}"
 	cd -
 
 	curl "${CURL_RETRY_OPTS[@]}" ${ELD_SRC_URL} -o eld.tar.xz
