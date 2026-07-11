@@ -123,12 +123,16 @@ set(RUNTIMES_hexagon-unknown-linux-musl_LLVM_ENABLE_PER_TARGET_RUNTIME_DIR OFF C
 # The Hexagon driver's getCompilerRTPath() returns ${SysRoot}/usr/lib/,
 # so compiler-rt libraries must be installed there with arch-suffix names.
 # Headers stay in the resource dir (COMPILER_RT_INSTALL_INCLUDE_DIR default).
-# NOTE: must be CACHE STRING, not CACHE PATH.  A relative PATH-typed cache
-# entry is resolved against the (runtimes sub-) build directory, which sent the
-# sanitizer libs to obj_llvm/.../runtimes-bins instead of the sysroot.  STRING
-# is joined to CMAKE_INSTALL_PREFIX at install time, matching LIBCXX_* below.
+# Must be an ABSOLUTE path.  A relative value does not survive to the sysroot
+# here: compiler-rt's own CMakeLists re-declares COMPILER_RT_INSTALL_LIBRARY_DIR
+# as `CACHE PATH` in the runtimes sub-build, which re-types the forwarded value
+# to PATH and resolves the relative path against the sub-build dir -- sending
+# the sanitizer libs to obj_llvm/.../runtimes-bins instead of the sysroot.
+# (LIBCXX_* below stay STRING and so a relative value works for them; the
+# asymmetry is why compiler-rt needs the absolute form.)  An absolute value is
+# left untouched by PATH-typing and installs to the sysroot as intended.
 set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_INSTALL_LIBRARY_DIR
-    "target/hexagon-unknown-linux-musl/usr/lib" CACHE STRING "")
+    "${CMAKE_INSTALL_PREFIX}/target/hexagon-unknown-linux-musl/usr/lib" CACHE STRING "")
 
 # libc++/libcxxabi/libunwind headers and libraries -> sysroot.
 # Paths are relative to CMAKE_INSTALL_PREFIX (the host toolchain root).
