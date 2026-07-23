@@ -192,3 +192,12 @@ set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_SANITIZERS_TO_BUILD
 set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_BUILD_XRAY OFF CACHE BOOL "")
 set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_BUILD_MEMPROF OFF CACHE BOOL "")
 set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_BUILD_CTX_PROFILE OFF CACHE BOOL "")
+# LibFuzzer builds its own private copy of libc++ with -fno-exceptions, which is
+# the only configuration that instantiates libc++'s __is_function_overridden().
+# That emits a GAS symbol assignment (`sym = expr`), and `=` is Hexagon's operand
+# assignment operator, so the assembler rejects it:
+#   overridable_function.h: error: unrecognized instruction
+#     1 |  _ZNSt3__110__impl_refIXadL_ZnwjEEE7__impl_...Ej = _Znwj
+# Fix in flight upstream (spell it `.set sym, expr` on Hexagon); re-enable once
+# that lands, expected in 23.1.0-rc2.
+set(RUNTIMES_hexagon-unknown-linux-musl_COMPILER_RT_BUILD_LIBFUZZER OFF CACHE BOOL "")
