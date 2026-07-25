@@ -273,6 +273,114 @@ build_musl() {
 }
 
 
+build_musl_scs() {
+	# Build a shadow-call-stack-instrumented libc for the scs multilib.
+	# The Hexagon driver's scs multilib (see clang Hexagon.cpp) prepends
+	# ${SysRoot}/usr/lib/scs to the library search path when a program is
+	# built with -fsanitize=shadow-call-stack, so an instrumented libc.a/
+	# libc.so must live there.  Anything not present in scs/ falls back to
+	# the uninstrumented libraries in usr/lib.
+	cd ${BASE}
+	cd musl
+	make clean
+
+	SCS_STAGING=${BASE}/obj_musl_scs_staging
+	rm -rf ${SCS_STAGING}
+
+	RESOURCE_DIR=$(${TOOLCHAIN_BIN}/clang --print-resource-dir)
+	CROSS_COMPILE=${CC_PREFIX} \
+		AR=llvm-ar \
+		RANLIB=llvm-ranlib \
+		STRIP=llvm-strip \
+		CC=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/bin/hexagon-unknown-linux-musl-clang \
+		LIBCC="${RESOURCE_DIR}/lib/hexagon-unknown-linux-musl/libclang_rt.builtins.a" \
+		CFLAGS="${MUSL_CFLAGS} ${SCS_CFLAGS} -D__HEXAGON_SCS_THREADS__" \
+		./configure --target=hexagon --prefix=${SCS_STAGING}
+	PATH=${TOOLCHAIN_INSTALL}/${NATIVE_TRIPLE}/bin/:$PATH make -j install
+
+	mkdir -p ${HEX_TOOLS_TARGET_BASE}/lib/scs
+	# musl folds libm/libpthread/etc. into libc; only libc.a/libc.so exist.
+	cp -a ${SCS_STAGING}/lib/libc.a  ${HEX_TOOLS_TARGET_BASE}/lib/scs/
+	cp -a ${SCS_STAGING}/lib/libc.so ${HEX_TOOLS_TARGET_BASE}/lib/scs/ 2>/dev/null || true
+}
+
+build_runtimes_scs() {
+	# Build shadow-call-stack-instrumented libc++/libc++abi/libunwind into
+	# the scs multilib dir (usr/lib/scs).  This is a standalone runtimes
+	# build against the freshly-built Hexagon clang (the embedded obj_llvm
+	# RUNTIMES_ machinery only builds the default, uninstrumented variant).
+	# compiler-rt is intentionally excluded -- the scs multilib is about
+	# instrumenting the C/C++ runtime, not rebuilding the sanitizer runtimes.
+	cd ${BASE}
+	rm -rf ./obj_runtimes_scs
+
+	PATH=${TOOLCHAIN_BIN}:${PATH} \
+		cmake -G Ninja \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX:PATH=${HEX_TOOLS_TARGET_BASE} \
+		-DLLVM_ENABLE_PER_TARGET_RUNTIME_DIR:BOOL=OFF \
+		-DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind" \
+		-DCMAKE_C_FLAGS="${SCS_CFLAGS}" \
+		-DCMAKE_CXX_FLAGS="${SCS_CFLAGS}" \
+		-DCMAKE_ASM_FLAGS="${SCS_CFLAGS}" \
+		-DLIBCXX_HAS_MUSL_LIBC:BOOL=ON \
+		-DLIBCXX_INCLUDE_BENCHMARKS:BOOL=OFF \
+		-DLIBCXX_INCLUDE_TESTS:BOOL=OFF \
+		-DLIBCXXABI_INCLUDE_TESTS:BOOL=OFF \
+		-DLIBUNWIND_INCLUDE_TESTS:BOOL=OFF \
+		-DLIBCXX_CXX_ABI=libcxxabi \
+		-DLIBCXXABI_USE_LLVM_UNWINDER:BOOL=ON \
+		-DLIBCXXABI_ENABLE_SHARED:BOOL=ON \
+		-DLIBCXX_USE_COMPILER_RT:BOOL=ON \
+		-DLIBCXXABI_USE_COMPILER_RT:BOOL=ON \
+		-DLIBUNWIND_USE_COMPILER_RT:BOOL=ON \
+		-DLIBCXX_INSTALL_LIBRARY_DIR=lib/scs \
+		-DLIBCXXABI_INSTALL_LIBRARY_DIR=lib/scs \
+		-DLIBUNWIND_INSTALL_LIBRARY_DIR=lib/scs \
+		-DLIBCXX_INSTALL_INCLUDE_DIR=include/c++/v1 \
+		-DLIBCXX_INSTALL_INCLUDE_TARGET_DIR=include/c++/v1 \
+		-DLIBCXXABI_INSTALL_INCLUDE_DIR=include/c++/v1 \
+		-DLIBUNWIND_INSTALL_INCLUDE_DIR=include \
+		-C ./hexagon-linux-cross.cmake \
+		-B ./obj_runtimes_scs \
+		-S ./llvm-project/runtimes
+	cmake --build ./obj_runtimes_scs --target install-cxx install-cxxabi install-unwind
+	if [[ "${IN_CONTAINER-0}" -eq 1 ]]; then
+		rm -rf ./obj_runtimes_scs
+	fi
+}
+
+build_crt_scs() {
+	# Shadow-call-stack startup object: musl's crt1 plus r19 (shadow-stack
+	# pointer) init in _start, so whole-program -fsanitize=shadow-call-stack
+	# runs (musl's instrumented __libc_start_main/.init_array would otherwise
+	# use r19 before anything sets it -> startup SEGV). Installed as
+	# usr/lib/scs/crt1.o; the Hexagon driver selects it for the scs multilib.
+	# Compiled WITHOUT the SCS flags (this object must not be instrumented).
+	cd ${BASE}
+	mkdir -p ${HEX_TOOLS_TARGET_BASE}/lib/scs
+	${TOOLCHAIN_BIN}/hexagon-unknown-linux-musl-clang \
+		-G0 -O2 -fPIC -DCRT -c ${BASE}/hexagon-scs-crt1.c \
+		-o ${HEX_TOOLS_TARGET_BASE}/lib/scs/crt1.o
+	# The driver resolves startup objects from the selected multilib dir, so the
+	# scs multilib must also provide crti.o (used for -shared links). crti.o is
+	# plain _init-prologue asm with no shadow-call-stack component, so the base
+	# copy is correct here.
+	cp -a ${HEX_TOOLS_TARGET_BASE}/lib/crti.o ${HEX_TOOLS_TARGET_BASE}/lib/scs/crti.o
+}
+
+build_scs_multilib() {
+	build_musl_scs
+	# crt1.o/crti.o must be installed into usr/lib/scs before build_runtimes_scs:
+	# that build configures with -fsanitize=shadow-call-stack, which makes the
+	# driver select the scs multilib, so CMake's compiler feature tests (which
+	# link a full executable) fail with "cannot open .../usr/lib/scs/crt1.o".
+	# CXX_SUPPORTS_FNO_EXCEPTIONS_FLAG then comes back Failed and libunwind's
+	# CMakeLists aborts the whole configure.
+	build_crt_scs
+	build_runtimes_scs
+}
+
 build_sanitizers() {
 	cd ${BASE}
 	set -x
@@ -479,6 +587,11 @@ MUSL_CFLAGS="${MUSL_CFLAGS} -Wno-switch-bool"
 # hexagon compiler backend:
 MUSL_CFLAGS="${MUSL_CFLAGS} -Wno-unsupported-floating-point-opt"
 
+# Flags for the shadow-call-stack multilib (usr/lib/scs).  On Hexagon,
+# -fsanitize=shadow-call-stack reserves r19 as the shadow-stack pointer and
+# the driver errors unless -ffixed-r19 is also supplied.
+SCS_CFLAGS="-fsanitize=shadow-call-stack -ffixed-r19"
+
 which clang
 clang --version
 ninja --version
@@ -521,6 +634,11 @@ done
 
 build_runtimes
 #build_sanitizers
+
+# Shadow-call-stack multilib (usr/lib/scs).  Non-fatal: a failure here should
+# not discard the whole toolchain -- the base libraries in usr/lib still work,
+# and the driver's scs multilib falls back to them for anything missing.
+build_scs_multilib || echo "WARNING: build_scs_multilib failed (non-fatal); usr/lib/scs may be incomplete"
 
 build_picolibc
 install_baremetal_cfg

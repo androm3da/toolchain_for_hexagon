@@ -10,6 +10,7 @@
 !hexagon-unknown-none-elf.cfg
 !test_init/
 !build-toolchain.sh
+!hexagon-scs-crt1.c
 !build-buildroot.sh
 !test-toolchain.sh
 !tar-strip-symlink-modes.py
