@@ -30,7 +30,7 @@ get_src_tarballs() {
 	tar xf ../llvm-project.tar.xz --strip-components=1 --no-same-permissions
 	rm ../llvm-project.tar.xz
 	echo ${LLVM_SRC_URL} > ${MANIFEST_DIR}/llvm-project.txt
-	apply_patches llvm-project llvmorg-${VER}
+	apply_patches llvm-project "${LLVM_PATCH_TAG:-llvmorg-${VER}}"
 	cd -
 
 	curl "${CURL_RETRY_OPTS[@]}" ${ELD_SRC_URL} -o eld.tar.xz
@@ -39,7 +39,7 @@ get_src_tarballs() {
 	tar xf ../../eld.tar.xz --strip-components=1 --no-same-permissions
 	rm ../../eld.tar.xz
 	echo ${ELD_SRC_URL} > ${MANIFEST_DIR}/eld.txt
-	apply_patches eld v${VER}-rc3
+	apply_patches eld "${ELD_PATCH_TAG:-${VER}}"
 	cd -
 
 	curl "${CURL_RETRY_OPTS[@]}" ${LLVM_TESTS_SRC_URL} -o llvm-test-suite.tar.xz
