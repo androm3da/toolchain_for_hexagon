@@ -29,7 +29,7 @@ VER=23.1.0-rc1
 # needed to build RTSan/TySan/Scudo/GWP-ASan for hexagon (see
 # cmake/caches/hexagon-stage0.cmake).
 LLVM_SRC_URL="https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-${VER}.tar.gz"
-ELD_SRC_URL="https://github.com/qualcomm/eld/archive/v22.1.0-rc3.tar.gz"
+ELD_SRC_URL="https://github.com/qualcomm/eld/archive/23.1.0-rc1.tar.gz"
 LLVM_TESTS_SRC_URL="https://github.com/llvm/llvm-test-suite/archive/refs/tags/llvmorg-${VER}.tar.gz"
 MUSL_SRC_URL="https://github.com/quic/musl/archive/hexagon-v1.2.4-dec-2025.tar.gz"
 LINUX_SRC_URL="https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.13.5.tar.xz"
