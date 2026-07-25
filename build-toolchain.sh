@@ -540,6 +540,15 @@ CROSSEOF
 install_baremetal_cfg() {
 	cd ${BASE}
 	cp hexagon-unknown-none-elf.cfg ${TOOLCHAIN_BIN}/hexagon-unknown-none-elf.cfg
+	# The cfg asks for ld.eld, which is only installed when ELD is part of the
+	# build (see build_llvm_clang).  Without this fallback, every baremetal
+	# link with the shipped toolchain dies at
+	#   clang: error: invalid linker name in argument '--ld-path=.../ld.eld'
+	# since clang auto-loads this cfg for --target=hexagon-unknown-none-elf.
+	if [[ ! -e ${TOOLCHAIN_BIN}/ld.eld ]]; then
+		sed -i 's|^--ld-path=<CFGDIR>/ld.eld$|--ld-path=<CFGDIR>/ld.lld|' \
+			${TOOLCHAIN_BIN}/hexagon-unknown-none-elf.cfg
+	fi
 	ln -sf hexagon-unknown-none-elf.cfg ${TOOLCHAIN_BIN}/hexagon.cfg
 }
 
