@@ -55,7 +55,9 @@ RUN wget -q "${LLVM_SRC_URL}" -O llvm-project.tar.gz && \
     rm llvm-project.tar.gz && \
     cd llvm-project && \
     for p in /root/hexagon-toolchain/patches/llvm-project/llvmorg-${VER}/*.patch; do \
-        [ -f "$p" ] && echo "Applying $(basename "$p")" && patch -p1 < "$p"; \
+        [ -f "$p" ] || continue; \
+        echo "Applying $(basename "$p")"; \
+        patch -p1 < "$p"; \
     done
 
 RUN wget -q "${MUSL_SRC_URL}" -O musl.tar.gz && \
