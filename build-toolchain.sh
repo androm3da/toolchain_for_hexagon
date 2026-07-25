@@ -182,6 +182,20 @@ build_builtins() {
 
 build_runtimes() {
 	cd ${BASE}
+
+	# Install libunwind/libc++abi/libc++ into the sysroot before the rest of
+	# the runtimes build, replacing the empty stub archives created above.
+	# The Hexagon driver places -L${SysRoot}/usr/lib and its unconditional
+	# -lc++ -lc++abi -lunwind ahead of any -L the build passes, so the stubs
+	# would win over the in-tree libraries when compiler-rt links its shared
+	# runtimes (e.g. libclang_rt.scudo_standalone-hexagon.so, whose GWP-ASan
+	# backtrace needs _Unwind_Backtrace/_Unwind_GetIP) -- with -Wl,-z,defs
+	# that is a hard link error.  These three runtimes don't depend on
+	# compiler-rt's sanitizers, so building them first is safe.
+	for rt in unwind cxxabi cxx; do
+		cmake --build ./obj_llvm --target install-${rt}-hexagon-unknown-linux-musl
+	done
+
 	cmake --build ./obj_llvm --target install-runtimes-hexagon-unknown-linux-musl
 }
 
