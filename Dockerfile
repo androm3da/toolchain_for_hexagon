@@ -68,7 +68,7 @@ ENV ROOT_INSTALL /usr/local/hexagon-unknown-linux-musl-rootfs
 ENV MAKE_TARBALLS 1
 
 ENV LLVM_SRC_URL https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-${VER}.tar.gz
-ENV ELD_SRC_URL https://github.com/qualcomm/eld/archive/v22.1.0-rc3.tar.gz
+ENV ELD_SRC_URL https://github.com/qualcomm/eld/archive/23.1.0-rc1.tar.gz
 ENV LLVM_TESTS_SRC_URL https://github.com/llvm/llvm-test-suite/archive/refs/tags/llvmorg-${VER}.tar.gz
 ENV MUSL_SRC_URL https://github.com/quic/musl/archive/hexagon-v1.2.4-apr-2026.tar.gz
 ENV LINUX_SRC_URL https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.13.5.tar.xz
