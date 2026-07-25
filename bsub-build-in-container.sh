@@ -37,7 +37,7 @@ BUSYBOX_SRC_URL="https://busybox.net/downloads/busybox-1.36.1.tar.bz2"
 PICOLIBC_SRC_URL="https://github.com/picolibc/picolibc/releases/download/1.8.11/picolibc-1.8.11.tar.xz"
 BUILDROOT_SRC_URL="https://github.com/quic/buildroot/archive/hexagon-2026.07.10.tar.gz"
 QEMU_REPO="https://github.com/qualcomm/qemu"
-QEMU_REF="hexagon-sysemu-08-july-2026"
+QEMU_REF="hexagon-sysemu-24-july-2026"
 
 # ─── Usage ──────────────────────────────────────────────────────────────────
 
