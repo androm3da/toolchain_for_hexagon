@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+#  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+#  SPDX-License-Identifier: BSD-3-Clause-Clear
+
 """Streaming tar filter that zeroes symlink mode fields.
 
 Reads a tar stream on stdin and writes the modified stream to stdout.
